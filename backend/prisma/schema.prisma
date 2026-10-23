@@ -1,0 +1,161 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String      @id @default(cuid())
+  name             String      @db.VarChar(80)
+  employeeId       String      @unique @db.VarChar(50)
+  email            String      @unique
+  password         String
+  role             String      @default("employee")
+  isActive         Boolean     @default(true)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  assignedShifts   Shift[]     @relation("AssignedEmployees")
+  createdShifts    Shift[]     @relation("ShiftCreator")
+  attendances      Attendance[]
+  createdQrSessions QrSession[] @relation("QRSessionCreator")
+  wfhRequests      WfhRequest[] @relation("WfhRequestEmployee")
+  reviewedWfhRequests WfhRequest[] @relation("WfhRequestReviewer")
+  leaveRequests       LeaveRequest[] @relation("LeaveRequestEmployee")
+  reviewedLeaveRequests LeaveRequest[] @relation("LeaveRequestReviewer")
+  adminAuditLogs    AdminAuditLog[] @relation("AdminAuditActor")
+  companyId         String?
+  company           Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  isCompanyOwner     Boolean    @default(false)
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(120)
+  slug      String   @unique @db.VarChar(140)
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  shifts    Shift[]
+  attendances Attendance[]
+}
+
+model Shift {
+  id                String      @id @default(cuid())
+  name              String      @db.VarChar(80)
+  startTime         String
+  endTime           String
+  isActive          Boolean     @default(true)
+  createdBy         String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  companyId         String?
+  company           Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  createdByUser     User        @relation("ShiftCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  assignedEmployees User[]      @relation("AssignedEmployees")
+  qrSessions        QrSession[] @relation("QRSessionShifts")
+}
+
+model Attendance {
+  id                 String   @id @default(cuid())
+  employee           String
+  date               String
+  checkIn            DateTime?
+  checkOut           DateTime?
+  status             String   @default("present")
+  arrivalStatus      String   @default("on-time")
+  lateMinutes        Int      @default(0)
+  shiftName          String?
+  shiftStartTime     String?
+  gracePeriodMinutes Int      @default(15)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  companyId          String?
+  company            Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  employeeUser User @relation(fields: [employee], references: [id], onDelete: Restrict)
+
+  @@unique([employee, date])
+  @@index([date])
+  @@index([date, checkIn])
+  @@index([companyId, date])
+}
+
+model WfhRequest {
+  id          String   @id @default(cuid())
+  employeeId  String
+  date        String   @db.VarChar(10)
+  reason      String   @db.Text
+  status      String   @default("pending") @db.VarChar(20)
+  reviewNote  String?  @db.Text
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employee    User     @relation("WfhRequestEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  reviewer    User?    @relation("WfhRequestReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, date])
+  @@index([status, date])
+}
+
+model LeaveRequest {
+  id          String   @id @default(cuid())
+  employeeId  String
+  leaveType   String   @db.VarChar(30)
+  startDate   String   @db.VarChar(10)
+  endDate     String   @db.VarChar(10)
+  reason      String   @db.Text
+  status      String   @default("pending") @db.VarChar(20)
+  reviewNote  String?  @db.Text
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employee    User     @relation("LeaveRequestEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  reviewer    User?    @relation("LeaveRequestReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, startDate, endDate])
+  @@index([status, startDate])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String   @db.VarChar(80)
+  targetType String   @db.VarChar(50)
+  targetId   String?  @db.VarChar(50)
+  metadata   Json     @default("{}") @db.JsonB
+  ipAddress  String?  @db.VarChar(64)
+  userAgent  String?  @db.VarChar(255)
+  createdAt  DateTime @default(now())
+
+  actor User @relation("AdminAuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId, createdAt])
+}
+
+model QrSession {
+  id            String   @id @default(cuid())
+  tokenHash     String   @unique
+  createdBy     String
+  expiresAt     DateTime
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  createdByUser User   @relation("QRSessionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  shifts        Shift[] @relation("QRSessionShifts")
+
+  @@index([expiresAt])
+}

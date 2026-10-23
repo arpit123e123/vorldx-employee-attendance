@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+* { box-sizing: border-box; }
+html, body, #root { min-height: 100%; margin: 0; }
+body { font-family: "DM Sans", Inter, Arial, sans-serif; background: #f5f7f8; }
+.admin-app { min-height: 100vh; color: #18212b; background: #f5f7f8; }
+.panel, .metric-card, .chart-card, .table-card { border-color: #e5ece9 !important; border-radius: 16px !important; box-shadow: 0 10px 32px rgba(24,54,44,.055) !important; }
+.button.primary { background: #079b70 !important; border-color: #079b70 !important; }
+.nav-button.active { color: #087f5b !important; background: #e5f6ef !important; }
