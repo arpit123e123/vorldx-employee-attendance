@@ -36,6 +36,20 @@ The local runtime-role script creates/uses the restricted `vorldx_runtime` role 
 
 For a new schema change, update `schema.prisma`, create and review a migration, then run `npm run db:deploy` in the target environment. Do not edit a migration already applied to a shared database; add a follow-up migration instead.
 
+## Company schema recovery and deployment safety
+
+The migration history contains two initial migrations (`20261020033424_init_postgresql` and `20261020041415_init`) followed by request, RLS, company-registration, and company-scoped RLS migrations. The two initial migrations overlap and must be treated as an existing deployed history, not rewritten in place. The company-registration migration adds the tenant models and relationships; the later RLS migration adjusts request policies. Never mark migrations applied or roll back by hand without first comparing the target database's `_prisma_migrations` rows and actual catalog/schema.
+
+Before deployment to any existing database:
+
+1. Take and verify a restorable backup/snapshot; pause writes if the recovery plan requires it.
+2. Record the database identity, migration history, schema, and row counts for `Company`, `QRSession`, `_ShiftToUser`, and company-related columns. Keep these records secure.
+3. Review every pending migration SQL against that database. If a pending migration drops tenant tables/relations or columns, stop deployment and prepare a new additive repair migration that restores the intended schema and reconciles data from a known-good backup or validated mapping.
+4. Test the exact upgrade and restore procedure on a recent isolated production clone. Do not run reset, drop, truncate, destructive `migrate dev`, or unreviewed SQL against production.
+5. Deploy using the migration credential, inspect the resulting schema and row counts, then start the app using only the restricted runtime role.
+
+Fresh databases should receive the checked-in migration sequence with `prisma migrate deploy`. Existing databases must first be classified by their recorded migration history; do not replay the sequence blindly or use `migrate reset`. This repository has no access to production migration records or backups, so whether any migration was applied and whether dropped data can be recovered must be established by the database operator before deployment.
+
 ## Backups and operations
 
 The repository does not configure managed backups, point-in-time recovery, or a production connection pooler. Configure those at the PostgreSQL provider and test restore procedures. Size database connection capacity for both API replicas and use a provider pooler where appropriate.
