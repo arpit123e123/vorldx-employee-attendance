@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: vorldx_test
+          POSTGRES_USER: vorldx_test
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vorldx_test -d vorldx_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      CI: true
+      NODE_ENV: test
+      DATABASE_URL: postgresql://vorldx_test:ci-only-password@localhost:5432/vorldx_test
+      JWT_SECRET: ci-only-placeholder-secret-with-at-least-32-bytes
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma validate
+      - run: npm run prisma:generate
+      - name: Apply migrations to disposable PostgreSQL
+        run: npm run db:deploy
+      - run: npm test
+
+  admin-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin-web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  qr-display:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: qr-display
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: qr-display/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  employee-app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: employee-app-temp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: employee-app-temp/package-lock.json
+      - run: npm ci
+      - run: npm run lint
