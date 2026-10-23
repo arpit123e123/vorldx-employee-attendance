@@ -38,7 +38,7 @@ For a new schema change, update `schema.prisma`, create and review a migration, 
 
 ## Company schema recovery and deployment safety
 
-The migration history contains two initial migrations (`20261020033424_init_postgresql` and `20261020041415_init`) followed by request, RLS, company-registration, and company-scoped RLS migrations. The two initial migrations overlap and must be treated as an existing deployed history, not rewritten in place. The company-registration migration adds the tenant models and relationships; the later RLS migration adjusts request policies. Never mark migrations applied or roll back by hand without first comparing the target database's `_prisma_migrations` rows and actual catalog/schema.
+The migration history contains two initial migrations (`20261020033424_init_postgresql` and `20261020041415_init`) followed by request, RLS, company-registration, and company-scoped RLS migrations. The second initial migration explicitly drops `Company`, `QRSession`, `_QRSessionToShift`, `_ShiftEmployees`, and company-related columns after the first migration creates them. Later company-registration SQL recreates some tenant structures, but it cannot restore deleted tenant or QR-session data. Existing deployments must treat this as a destructive-history hazard; never rewrite either applied migration, mark migrations applied, or roll back by hand without first comparing the target database's `_prisma_migrations` rows and actual catalog/schema.
 
 Before deployment to any existing database:
 
